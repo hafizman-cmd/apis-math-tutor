@@ -1,0 +1,21 @@
+{
+    "name": "Apis AI Math Tutor",
+    "short_name": "MathAI",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#f9fafb",
+    "theme_color": "#3b82f6",
+    "description": "Step-by-step AI math solver.",
+    "icons": [
+        {
+            "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiBmaWxsPSIjM2I4MmY2Ij48cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIvPjwvc3ZnPg==",
+            "sizes": "192x192",
+            "type": "image/svg+xml"
+        },
+        {
+            "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiBmaWxsPSIjM2I4MmY2Ij48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIvPjwvc3ZnPg==",
+            "sizes": "512x512",
+            "type": "image/svg+xml"
+        }
+    ]
+}

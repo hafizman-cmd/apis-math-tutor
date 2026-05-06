@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apis Math Tutor</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
+        window.mermaid = mermaid; 
+    </script>
+
+    <style>
+        /* Moving gradient background */
+        .moving-gradient {
+            background: linear-gradient(-45deg, #0f172a, #1e293b, #020617, #1e1b4b);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+
+        /* This defines exactly how the background shifts */
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+    </style>
+</head>
+<body class="moving-gradient min-h-screen p-4 md:p-8 flex flex-col items-center">
+
+    <div class="w-full max-w-2xl bg-slate-50 rounded-2xl shadow-lg p-6 mt-8">
+        <h1 class="text-3xl font-bold text-blue-600 mb-2">Apis Math Tutor</h1>
+        <p class="text-gray-500 mb-6">Type any math problem to Apis, and he will explain it step-by-step.</p>
+
+        <textarea id="problemInput" rows="4" 
+            class="w-full border border-gray-300 rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-lg" 
+            placeholder="e.g., Solve for x: 2x + 5 = 15"></textarea>
+        <textarea id="attemptInput" rows="3" 
+            class="w-full border border-gray-300 rounded-lg p-4 mt-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-base bg-blue-50" 
+            placeholder="Where did you get stuck? Paste your attempt here (Optional). e.g., 'I tried dividing by 2 first...'"></textarea>
+        <button id="solveBtn" onclick="solveMath()" 
+            class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
+            Solve Problem
+        </button>
+
+        <div id="loading" class="hidden mt-6 text-center text-gray-500">
+            <p class="animate-pulse">Apis is Thinking... (This may take a few seconds)</p>
+        </div>
+
+        <div id="resultsArea" class="hidden mt-8 border-t pt-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Explanation</h2>
+            <div id="explanationText" class="prose max-w-none text-gray-700 space-y-4"></div>
+        </div>
+    </div>
+
+    <script>
+        async function solveMath() {
+            const input = document.getElementById('problemInput').value;
+            const attempt = document.getElementById('attemptInput').value; 
+            
+            if (!input) return alert("Please enter a math problem!");
+
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('resultsArea').classList.add('hidden');
+            document.getElementById('solveBtn').disabled = true;
+
+            let prompt = "";
+            
+            if (attempt.trim() !== "") {
+                prompt = `You are a master math tutor. The user is trying to solve a problem but got stuck or made a mistake.
+                Problem: ${input}
+                User's Attempt: ${attempt}
+
+                First, provide a **🔍 Error Diagnosis**. Explain exactly where they went wrong in a friendly, encouraging way. 
+                Next, provide a **🧠 Mini-Lesson** explaining the specific concept they misunderstood.
+
+                Then, show the correct solution. You MUST format the correct solution EXACTLY following this strict structure. You MUST leave a blank empty line between every single part:
+
+                **Step [Number]: [Brief Title of the Action]**
+
+                [The Mathematical Equation using block LaTeX wrapped in double $$]
+
+                **💡 Why This Step?** [Explain the concept]
+
+                **⚠️ Common Mistake:** [Highlight a general mistake]
+
+                ---
+
+                Finally, provide the **Final Answer**.
+                Use LaTeX formatting for all formulas.
+                CRITICAL RULE: Never use the actual '$' symbol for money or currency. Use the word 'dollars' instead.
+                
+                Finally, generate a **🗺️ Concept Map** showing the mathematical prerequisites needed to understand this problem. Output this STRICTLY as Mermaid.js code wrapped in a markdown code block (using \`\`\`mermaid and \`\`\`). Use a top-down graph (graph TD).
+                MERMAID RULE: You MUST use plain English inside the flowchart nodes. Do NOT use any math formulas, LaTeX, parentheses '()', or special characters inside the flowchart boxes, or it will crash.`;
+            } else {
+                prompt = `You are a master math tutor. Solve the following problem. 
+                You MUST format your response EXACTLY following this strict structure. You MUST leave a blank empty line between every single part:
+
+                **Step [Number]: [Brief Title of the Action]**
+
+                [The Mathematical Equation using block LaTeX wrapped in double $$]
+
+                **💡 Why This Step?** [Explain the conceptual reason for choosing this operation.]
+
+                **⚠️ Common Mistake:** [Highlight a specific error students often make at this exact stage.]
+
+                ---
+
+                After completing all steps, provide the **Final Answer**.
+                Use LaTeX formatting for all mathematical formulas.
+                CRITICAL RULE: Never use the actual '$' symbol for money or currency. Use the word 'dollars' instead.
+                
+                Finally, generate a **🗺️ Concept Map** showing the mathematical prerequisites needed to understand this problem. Output this STRICTLY as Mermaid.js code wrapped in a markdown code block (using \`\`\`mermaid and \`\`\`). Use a top-down graph (graph TD).
+                MERMAID RULE: You MUST use plain English inside the flowchart nodes. Do NOT use any math formulas, LaTeX, parentheses '()', or special characters inside the flowchart boxes, or it will crash.
+                
+                Problem: ${input}`;
+            }
+
+            try {
+                // We ask your Vercel Middleman to handle the Replicate connection
+                const response = await fetch('/api/solve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+
+                // This is the answer that came back from the backend
+                let finalOutput = data.result;
+
+                // Display the results
+                const explanationDiv = document.getElementById('explanationText');
+                explanationDiv.innerHTML = marked.parse(finalOutput);
+                
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('resultsArea').classList.remove('hidden');
+                
+                renderMathInElement(explanationDiv, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ]
+                });
+
+                const mermaidBlocks = explanationDiv.querySelectorAll('code.language-mermaid');
+                if (mermaidBlocks.length > 0) {
+                    mermaidBlocks.forEach((block) => {
+                        const preNode = block.parentNode; 
+                        const div = document.createElement('div');
+                        div.className = 'mermaid flex justify-center my-6 p-4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto';
+                        div.textContent = block.textContent; 
+                        preNode.replaceWith(div); 
+                    });
+                    
+                    try {
+                        await window.mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
+                    } catch (err) {
+                        console.error("Mermaid failed to render:", err);
+                    }
+                }
+            } 
+            catch (error) {
+                console.error(error);
+                alert("Error connecting to the AI: " + error.message);
+                document.getElementById('loading').classList.add('hidden');
+            } finally {
+                document.getElementById('solveBtn').disabled = false;
+            }
+        }
+    </script>
+
+    <script>
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js');
+            });
+        }
+    </script>
+</body>
+</html>
