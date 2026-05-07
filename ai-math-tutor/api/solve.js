@@ -5,32 +5,28 @@ export default async function handler(req, res) {
     const { prompt, image } = req.body;
 
     try {
-        // 1. Build the input payload
+        // 1. Build the input payload specifically for Molmo
         const inputData = { 
-            prompt: prompt 
+            text: prompt, // Molmo uses 'text' instead of 'prompt'
+            max_new_tokens: 1000 // Force it to write long, detailed math explanations
         };
         
         if (image) {
             inputData.image = `data:image/jpeg;base64,${image}`;
         }
 
-        // 2. Set the specific model. 
-        // MAKE SURE THIS IS THE EXACT ID FROM REPLICATE
-        const replicateModel = "lucataco/qwen2-vl-7b-instruct"; 
+        // 2. Point it to the official Molmo 7B model
+        const replicateModel = "zsxkib/molmo-7b"; 
 
-       // Send the request to Replicate using the version hash
-        const response = await fetch(`https://api.replicate.com/v1/predictions`, {
+        // 3. Send the request to Replicate
+        const response = await fetch(`https://api.replicate.com/v1/models/${replicateModel}/predictions`, {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${API_KEY}`,
                 "Content-Type": "application/json",
                 "Prefer": "wait" 
             },
-            // We pass the "version" directly in the body here
-            body: JSON.stringify({ 
-                version: "12345...", // <-- You will need the actual version hash here
-                input: inputData 
-            })
+            body: JSON.stringify({ input: inputData })
         });
 
         const data = await response.json();
