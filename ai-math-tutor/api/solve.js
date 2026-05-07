@@ -20,7 +20,7 @@ export default async function handler(req, res) {
         }
 
         // 2. Set the model to Gemini 2.5 Flash
-        const model = "gemini-2.5-flash"; 
+        const model = "gemini-2.5-pro"; 
         
         // 3. Send the request to Google's servers
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`, {
