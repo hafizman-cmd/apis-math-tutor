@@ -1,47 +1,45 @@
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-    // Notice we are using a new variable name here for Google!
-    const API_KEY = process.env.GEMINI_API_KEY;
+    // We are back to using the Replicate key!
+    const API_KEY = process.env.REPLICATE_API_KEY;
     const { prompt, image } = req.body;
 
     try {
-        // 1. Build the request payload
-        let parts = [{ "text": prompt }];
+        // 1. Build the input payload
+        const inputData = { 
+            prompt: prompt 
+        };
         
-        // If the user uploaded an image, attach it to the request so Gemini can see it
+        // Replicate requires the image string to explicitly state it is a base64 jpeg
         if (image) {
-            parts.push({
-                "inline_data": {
-                    "mime_type": "image/jpeg",
-                    "data": image
-                }
-            });
+            inputData.image = `data:image/jpeg;base64,${image}`;
         }
 
-        const payload = {
-            "contents": [{
-                "parts": parts
-            }]
-        };
+        // 2. Set the specific model. 
+        const replicateModel = "lucataco/qwen3-vl-8b-instruct"; 
 
-        // 2. Send the request directly to Google's Gemini 1.5 Flash model
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
+        // 3. Send the request to Replicate
+        const response = await fetch(`https://api.replicate.com/v1/models/${replicateModel}/predictions`, {
             method: "POST",
             headers: {
-                "Content-Type": "application/json"
+                "Authorization": `Bearer ${API_KEY}`,
+                "Content-Type": "application/json",
+                // This magic header tells Replicate to hold the connection open and 
+                // return the final answer immediately, saving us from writing polling loops!
+                "Prefer": "wait" 
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({ input: inputData })
         });
 
         const data = await response.json();
         
-        if (data.error) return res.status(500).json({ error: data.error.message });
+        if (data.error) return res.status(500).json({ error: data.error });
 
-        // 3. Extract the text answer from Google's response format
-        const finalOutput = data.candidates[0].content.parts[0].text;
+        // 4. Replicate often returns text outputs as an array of string chunks. 
+        // We join them together into one solid paragraph.
+        let finalOutput = Array.isArray(data.output) ? data.output.join('') : data.output;
 
-        // 4. Send the final answer back to your website
         res.status(200).json({ result: finalOutput });
 
     } catch (error) {
