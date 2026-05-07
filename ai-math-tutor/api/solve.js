@@ -1,73 +1,52 @@
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-    const API_KEY = process.env.REPLICATE_API_KEY;
+    // Pulling your Google key from Vercel
+    const API_KEY = process.env.GEMINI_API_KEY; 
     const { prompt, image } = req.body;
 
     try {
-        // 1. Build the input payload specifically for Qwen2-VL
-        const inputData = { 
-            // Put the strict rules here so the AI knows they are mandatory instructions
-            system_prompt: `You are a master math tutor. You MUST follow this strict structure:
-            **Step [Number]: [Action]**
-            [Equations in $$]
-            **💡 Why This Step?** [Explain]
-            **⚠️ Common Mistake:** [Mistake]
-            ---
-            Final Answer.
-            CRITICAL GRAPH RULE: If a graph is needed, provide the raw equation wrapped EXACTLY in a markdown code block labeled 'graph'. EACH function on a NEW LINE. NO commas. NO 'y ='. Use '*' for multiplication.`,
-            
-            // Just the problem goes here
-            prompt: prompt,
-            
-            // Give it plenty of room to write out long math calculations and graphs
-            max_tokens: 2048 
-        };
+        // 1. Build the payload for Gemini
+        const parts = [{ text: prompt }];
         
-        // Qwen2-VL requires the image to be explicitly labeled "media"
+        // If an image was uploaded, attach it using Gemini's strict inlineData format
         if (image) {
-            inputData.media = `data:image/jpeg;base64,${image}`;
+            parts.push({
+                inlineData: {
+                    mimeType: "image/jpeg",
+                    data: image
+                }
+            });
         }
 
-        // 2. Send the request to Replicate using the official Version Hash endpoint
-        const response = await fetch(`https://api.replicate.com/v1/predictions`, {
-            method: "POST",
+        // 2. Set the model to Gemini 2.5 Flash
+        const model = "gemini-2.5-flash"; 
+        
+        // 3. Send the request to Google's servers
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`, {
+            method: 'POST',
             headers: {
-                "Authorization": `Bearer ${API_KEY}`,
-                "Content-Type": "application/json",
-                "Prefer": "wait" 
+                'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ 
-                // This is the exact 64-character hash for lucataco/qwen2-vl-7b-instruct
-                version: "bf57361c75677fc33d480d0c5f02926e621b2caa2000347cb74aeae9d2ca07ee",
-                input: inputData 
+            body: JSON.stringify({
+                contents: [{ parts: parts }]
             })
         });
 
         const data = await response.json();
-        
-        // --- NEW ERROR CATCHING LOGIC ---
-        // Replicate hides errors in "detail" instead of "error" sometimes
+
+        // Catch any Google-specific errors (like an invalid API key)
         if (!response.ok) {
-            throw new Error(data.detail || data.title || "Replicate API rejected the request.");
-        }
-        if (data.error) {
-            throw new Error(typeof data.error === 'string' ? data.error : data.error.message || "Unknown Replicate Error");
+            throw new Error(data.error?.message || "Google API Error");
         }
 
-        // If the model is taking too long to wake up, it won't have an output yet
-        if (!data.output) {
-            throw new Error(`The AI is currently "${data.status}". It took too long to wake up. Please try clicking solve again!`);
-        }
-        // --------------------------------
-
-        // 4. Extract the answer
-        let finalOutput = Array.isArray(data.output) ? data.output.join('') : data.output;
+        // 4. Extract the beautifully formatted text from Gemini's response payload
+        const finalOutput = data.candidates[0].content.parts[0].text;
 
         res.status(200).json({ result: finalOutput });
 
     } catch (error) {
-        // Send the exact error message back to the website so you can read it
+        console.error("Backend Error:", error);
         res.status(500).json({ error: error.message });
     }
 }
