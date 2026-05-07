@@ -7,8 +7,21 @@ export default async function handler(req, res) {
     try {
         // 1. Build the input payload specifically for Qwen2-VL
         const inputData = { 
+            // Put the strict rules here so the AI knows they are mandatory instructions
+            system_prompt: `You are a master math tutor. You MUST follow this strict structure:
+            **Step [Number]: [Action]**
+            [Equations in $$]
+            **💡 Why This Step?** [Explain]
+            **⚠️ Common Mistake:** [Mistake]
+            ---
+            Final Answer.
+            CRITICAL GRAPH RULE: If a graph is needed, provide the raw equation wrapped EXACTLY in a markdown code block labeled 'graph'. EACH function on a NEW LINE. NO commas. NO 'y ='. Use '*' for multiplication.`,
+            
+            // Just the problem goes here
             prompt: prompt,
-            max_new_tokens: 512 // Qwen's max allowed token limit to prevent cut-offs
+            
+            // Give it plenty of room to write out long math calculations and graphs
+            max_tokens: 2048 
         };
         
         // Qwen2-VL requires the image to be explicitly labeled "media"
