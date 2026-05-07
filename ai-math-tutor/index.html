@@ -14,21 +14,17 @@
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
     
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script type="module">
-        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-        mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
-        window.mermaid = mermaid; 
-    </script>
+
+    <script src="https://unpkg.com/d3@7"></script>
+    <script src="https://unpkg.com/function-plot/dist/function-plot.js"></script>
 
     <style>
-        /* Moving gradient background */
         .moving-gradient {
             background: linear-gradient(-45deg, #0f172a, #1e293b, #020617, #1e1b4b);
             background-size: 400% 400%;
             animation: gradientBG 15s ease infinite;
         }
 
-        /* This defines exactly how the background shifts */
         @keyframes gradientBG {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
@@ -40,14 +36,23 @@
 
     <div class="w-full max-w-2xl bg-slate-50 rounded-2xl shadow-lg p-6 mt-8">
         <h1 class="text-3xl font-bold text-blue-600 mb-2">Apis Math Tutor</h1>
-        <p class="text-gray-500 mb-6">Type any math problem to Apis, and he will explain it step-by-step.</p>
+        <p class="text-gray-500 mb-6">Type a math problem or upload a photo, and Apis will explain it step-by-step.</p>
 
-        <textarea id="problemInput" rows="4" 
+        <div class="mb-4">
+            <label class="block mb-2 text-sm font-medium text-gray-700">📸 Take a Photo or Upload</label>
+            <input type="file" id="imageInput" accept="image/*" capture="environment" onchange="previewImage(event)"
+                class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200" />
+            <img id="imagePreview" class="hidden mt-3 max-h-48 rounded-lg shadow-sm border border-gray-200" />
+        </div>
+
+        <textarea id="problemInput" rows="3" 
             class="w-full border border-gray-300 rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-lg" 
             placeholder="e.g., Solve for x: 2x + 5 = 15"></textarea>
-        <textarea id="attemptInput" rows="3" 
+            
+        <textarea id="attemptInput" rows="2" 
             class="w-full border border-gray-300 rounded-lg p-4 mt-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-base bg-blue-50" 
-            placeholder="Where did you get stuck? Paste your attempt here (Optional). e.g., 'I tried dividing by 2 first...'"></textarea>
+            placeholder="Where did you get stuck? Paste your attempt here (Optional)"></textarea>
+            
         <button id="solveBtn" onclick="solveMath()" 
             class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
             Solve Problem
@@ -64,89 +69,88 @@
     </div>
 
     <script>
+        // Store base64 image data globally
+        let uploadedImageBase64 = null;
+
+        function previewImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('imagePreview');
+                    preview.src = e.target.result;
+                    preview.classList.remove('hidden');
+                    // Store the base64 string (removing the data:image/jpeg;base64, prefix for the API later)
+                    uploadedImageBase64 = e.target.result.split(',')[1]; 
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
         async function solveMath() {
             const input = document.getElementById('problemInput').value;
             const attempt = document.getElementById('attemptInput').value; 
             
-            if (!input) return alert("Please enter a math problem!");
+            if (!input && !uploadedImageBase64) {
+                return alert("Please enter a math problem or upload a photo!");
+            }
 
             document.getElementById('loading').classList.remove('hidden');
             document.getElementById('resultsArea').classList.add('hidden');
             document.getElementById('solveBtn').disabled = true;
 
-            let prompt = "";
-            
+            const basePrompt = `You are a master math tutor. 
+            Analyze the provided problem (and image if provided). 
+            You MUST format your response EXACTLY following this strict structure. Leave a blank line between every part:
+
+            **Step [Number]: [Brief Title of the Action]**
+
+            [The Mathematical Equation using block LaTeX wrapped in double $$]
+
+            **💡 Why This Step?** [Explain the concept]
+
+            **⚠️ Common Mistake:** [Highlight a general mistake]
+
+            ---
+
+            Finally, provide the **Final Answer**.
+            Use LaTeX formatting for all formulas. Use 'dollars' instead of the $ symbol.
+
+            GRAPHING INSTRUCTION:
+            If the problem asks to graph a function, or if a graph would help explain the concept, provide the raw equation to graph wrapped EXACTLY in a markdown code block labeled 'graph' like this:
+            \`\`\`graph
+            x^2 + 2x - 5
+            \`\`\`
+            Do NOT include 'y =' inside the graph block, just the right side of the equation.`;
+
+            let finalPrompt = basePrompt;
             if (attempt.trim() !== "") {
-                prompt = `You are a master math tutor. The user is trying to solve a problem but got stuck or made a mistake.
-                Problem: ${input}
-                User's Attempt: ${attempt}
-
-                First, provide a **🔍 Error Diagnosis**. Explain exactly where they went wrong in a friendly, encouraging way. 
-                Next, provide a **🧠 Mini-Lesson** explaining the specific concept they misunderstood.
-
-                Then, show the correct solution. You MUST format the correct solution EXACTLY following this strict structure. You MUST leave a blank empty line between every single part:
-
-                **Step [Number]: [Brief Title of the Action]**
-
-                [The Mathematical Equation using block LaTeX wrapped in double $$]
-
-                **💡 Why This Step?** [Explain the concept]
-
-                **⚠️ Common Mistake:** [Highlight a general mistake]
-
-                ---
-
-                Finally, provide the **Final Answer**.
-                Use LaTeX formatting for all formulas.
-                CRITICAL RULE: Never use the actual '$' symbol for money or currency. Use the word 'dollars' instead.
-                
-                Finally, generate a **🗺️ Concept Map** showing the mathematical prerequisites needed to understand this problem. Output this STRICTLY as Mermaid.js code wrapped in a markdown code block (using \`\`\`mermaid and \`\`\`). Use a top-down graph (graph TD).
-                MERMAID RULE: You MUST use plain English inside the flowchart nodes. Do NOT use any math formulas, LaTeX, parentheses '()', or special characters inside the flowchart boxes, or it will crash.`;
-            } else {
-                prompt = `You are a master math tutor. Solve the following problem. 
-                You MUST format your response EXACTLY following this strict structure. You MUST leave a blank empty line between every single part:
-
-                **Step [Number]: [Brief Title of the Action]**
-
-                [The Mathematical Equation using block LaTeX wrapped in double $$]
-
-                **💡 Why This Step?** [Explain the conceptual reason for choosing this operation.]
-
-                **⚠️ Common Mistake:** [Highlight a specific error students often make at this exact stage.]
-
-                ---
-
-                After completing all steps, provide the **Final Answer**.
-                Use LaTeX formatting for all mathematical formulas.
-                CRITICAL RULE: Never use the actual '$' symbol for money or currency. Use the word 'dollars' instead.
-                
-                Finally, generate a **🗺️ Concept Map** showing the mathematical prerequisites needed to understand this problem. Output this STRICTLY as Mermaid.js code wrapped in a markdown code block (using \`\`\`mermaid and \`\`\`). Use a top-down graph (graph TD).
-                MERMAID RULE: You MUST use plain English inside the flowchart nodes. Do NOT use any math formulas, LaTeX, parentheses '()', or special characters inside the flowchart boxes, or it will crash.
-                
-                Problem: ${input}`;
+                finalPrompt = `User's Attempt: ${attempt}\n\nFirst, provide a **🔍 Error Diagnosis**. Explain where they went wrong. Next, provide a **🧠 Mini-Lesson**. Then show the correct solution using the structure below.\n\n` + basePrompt;
             }
 
             try {
-                // We ask your Vercel Middleman to handle the Replicate connection
+                // Notice we are now sending both the prompt AND the image to the backend!
                 const response = await fetch('/api/solve', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: prompt })
+                    body: JSON.stringify({ 
+                        prompt: finalPrompt + "\nProblem: " + input,
+                        image: uploadedImageBase64 
+                    })
                 });
 
                 const data = await response.json();
                 if (data.error) throw new Error(data.error);
 
-                // This is the answer that came back from the backend
                 let finalOutput = data.result;
 
-                // Display the results
                 const explanationDiv = document.getElementById('explanationText');
                 explanationDiv.innerHTML = marked.parse(finalOutput);
                 
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('resultsArea').classList.remove('hidden');
                 
+                // Render Math
                 renderMathInElement(explanationDiv, {
                     delimiters: [
                         {left: '$$', right: '$$', display: true},
@@ -154,21 +158,29 @@
                     ]
                 });
 
-                const mermaidBlocks = explanationDiv.querySelectorAll('code.language-mermaid');
-                if (mermaidBlocks.length > 0) {
-                    mermaidBlocks.forEach((block) => {
+                // Render Graphs
+                const graphBlocks = explanationDiv.querySelectorAll('code.language-graph');
+                if (graphBlocks.length > 0) {
+                    graphBlocks.forEach((block, index) => {
                         const preNode = block.parentNode; 
-                        const div = document.createElement('div');
-                        div.className = 'mermaid flex justify-center my-6 p-4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto';
-                        div.textContent = block.textContent; 
-                        preNode.replaceWith(div); 
+                        const container = document.createElement('div');
+                        container.id = 'math-graph-' + index;
+                        container.className = 'my-6 flex justify-center bg-white rounded-xl shadow-sm border border-gray-200 p-4 w-full h-80';
+                        preNode.replaceWith(container); 
+
+                        try {
+                            functionPlot({
+                                target: '#' + container.id,
+                                width: container.clientWidth - 40,
+                                height: 300,
+                                grid: true,
+                                data: [{ fn: block.textContent.trim() }]
+                            });
+                        } catch (err) {
+                            console.error("Graph rendering failed:", err);
+                            container.innerHTML = "<p class='text-red-500'>Graph could not be rendered for: " + block.textContent + "</p>";
+                        }
                     });
-                    
-                    try {
-                        await window.mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
-                    } catch (err) {
-                        console.error("Mermaid failed to render:", err);
-                    }
                 }
             } 
             catch (error) {
@@ -182,7 +194,6 @@
     </script>
 
     <script>
-        // Register Service Worker for PWA
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js');
