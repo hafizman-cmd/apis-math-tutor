@@ -1,54 +1,47 @@
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-    // Make sure your REPLICATE_API_KEY is still in your Vercel Environment Variables!
-    const API_KEY = process.env.REPLICATE_API_KEY; 
+    // Pulling your Google key from Vercel
+    const API_KEY = process.env.GEMINI_API_KEY; 
     const { prompt, image } = req.body;
 
     try {
-        // 1. Build the payload for Molmo
-        const inputData = { 
-            // Molmo specifically asks for 'text' instead of 'prompt'
-            text: `You are a math tutor. Explain step-by-step.\n\nProblem: ${prompt}`,
-            // Force it to write longer answers
-            max_new_tokens: 1000 
-        };
+        // 1. Build the payload for Gemini
+        const parts = [{ text: prompt }];
         
-        // Molmo expects the image to just be called "image"
+        // If an image was uploaded, attach it using Gemini's strict inlineData format
         if (image) {
-            inputData.image = `data:image/jpeg;base64,${image}`;
+            parts.push({
+                inlineData: {
+                    mimeType: "image/jpeg",
+                    data: image
+                }
+            });
         }
 
-        // 2. Send the request to Replicate using the official Version Hash endpoint
-        const response = await fetch(`https://api.replicate.com/v1/predictions`, {
-            method: "POST",
+        // 2. Set the model to Gemini 2.5 Flash
+        const model = "gemini-2.5-flash"; 
+        
+        // 3. Send the request to Google's servers
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`, {
+            method: 'POST',
             headers: {
-                "Authorization": `Bearer ${API_KEY}`,
-                "Content-Type": "application/json",
-                "Prefer": "wait" 
+                'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ 
-                // This is the exact 64-character fingerprint for zsxkib/molmo-7b
-                version: "76ebd700864218a4ca97ac1ccff068be7222272859f9ea2ae1dd4ac073fa8de8",
-                input: inputData 
+            body: JSON.stringify({
+                contents: [{ parts: parts }]
             })
         });
 
         const data = await response.json();
 
-        // Error Catching
+        // Catch any Google-specific errors (like an invalid API key)
         if (!response.ok) {
-            throw new Error(data.detail || data.title || "Replicate API rejected the request.");
-        }
-        if (data.error) {
-            throw new Error(typeof data.error === 'string' ? data.error : data.error.message || "Unknown Replicate Error");
-        }
-        if (!data.output) {
-            throw new Error(`The AI is currently "${data.status}". It took too long to wake up. Please try again!`);
+            throw new Error(data.error?.message || "Google API Error");
         }
 
-        // 3. Extract the answer
-        let finalOutput = Array.isArray(data.output) ? data.output.join('') : data.output;
+        // 4. Extract the beautifully formatted text from Gemini's response payload
+        const finalOutput = data.candidates[0].content.parts[0].text;
 
         res.status(200).json({ result: finalOutput });
 
