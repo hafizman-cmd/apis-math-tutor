@@ -74,17 +74,53 @@
 
         function previewImage(event) {
             const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Create an invisible image element to load the file
+                const img = new Image();
+                img.onload = function() {
+                    // 1. Set a maximum size for the AI (800px is plenty for math problems)
+                    const MAX_WIDTH = 800;
+                    const MAX_HEIGHT = 800;
+                    let width = img.width;
+                    let height = img.height;
+
+                    // 2. Calculate the new dimensions keeping the aspect ratio
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height = Math.round(height *= MAX_WIDTH / width);
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width = Math.round(width *= MAX_HEIGHT / height);
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    // 3. Draw the image onto an invisible HTML canvas to shrink it
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // 4. Export it as a compressed JPEG (0.7 = 70% quality)
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7); 
+
+                    // 5. Show it on the screen and save the tiny version for the API
                     const preview = document.getElementById('imagePreview');
-                    preview.src = e.target.result;
+                    preview.src = dataUrl;
                     preview.classList.remove('hidden');
-                    // Store the base64 string (removing the data:image/jpeg;base64, prefix for the API later)
-                    uploadedImageBase64 = e.target.result.split(',')[1]; 
-                }
-                reader.readAsDataURL(file);
-            }
+                    
+                    // Save the compressed base64 string
+                    uploadedImageBase64 = dataUrl.split(',')[1]; 
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
         }
 
         async function solveMath() {
