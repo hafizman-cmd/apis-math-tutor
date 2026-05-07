@@ -30,6 +30,14 @@
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
+
+        /* Force long math equations to stay inside the box with a scrollbar */
+        .katex-display {
+            max-width: 100%;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 5px;
+        }
     </style>
 </head>
 <body class="moving-gradient min-h-screen p-4 md:p-8 flex flex-col items-center">
@@ -40,7 +48,7 @@
 
         <div class="mb-4">
             <label class="block mb-2 text-sm font-medium text-gray-700">📸 Take a Photo or Upload</label>
-            <input type="file" id="imageInput" accept="image/*" capture="environment" onchange="previewImage(event)"
+            <input type="file" id="imageInput" accept="image/*" onchange="previewImage(event)"
                 class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200" />
             <img id="imagePreview" class="hidden mt-3 max-h-48 rounded-lg shadow-sm border border-gray-200" />
         </div>
@@ -69,7 +77,6 @@
     </div>
 
     <script>
-        // Store base64 image data globally
         let uploadedImageBase64 = null;
 
         function previewImage(event) {
@@ -78,16 +85,13 @@
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                // Create an invisible image element to load the file
                 const img = new Image();
                 img.onload = function() {
-                    // 1. Set a maximum size for the AI (800px is plenty for math problems)
                     const MAX_WIDTH = 800;
                     const MAX_HEIGHT = 800;
                     let width = img.width;
                     let height = img.height;
 
-                    // 2. Calculate the new dimensions keeping the aspect ratio
                     if (width > height) {
                         if (width > MAX_WIDTH) {
                             height = Math.round(height *= MAX_WIDTH / width);
@@ -100,22 +104,18 @@
                         }
                     }
 
-                    // 3. Draw the image onto an invisible HTML canvas to shrink it
                     const canvas = document.createElement('canvas');
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    // 4. Export it as a compressed JPEG (0.7 = 70% quality)
                     const dataUrl = canvas.toDataURL('image/jpeg', 0.7); 
 
-                    // 5. Show it on the screen and save the tiny version for the API
                     const preview = document.getElementById('imagePreview');
                     preview.src = dataUrl;
                     preview.classList.remove('hidden');
                     
-                    // Save the compressed base64 string
                     uploadedImageBase64 = dataUrl.split(',')[1]; 
                 };
                 img.src = e.target.result;
@@ -150,19 +150,19 @@
             ---
 
             Finally, provide the **Final Answer**.
-            Use LaTeX formatting ONLY for mathematical formulas and variables. 
-            CRITICAL LATEX RULE: NEVER wrap regular English sentences, paragraphs, or words inside LaTeX delimiters ($ or $$). Standard text must remain plain text outside of LaTeX or it will break the website layout.
-            Use 'dollars' instead of the $ symbol for currency.
+            Use LaTeX formatting ONLY for mathematical formulas. 
+            CRITICAL RULE 1: NEVER wrap regular English text inside LaTeX delimiters. 
+            CRITICAL RULE 2: NEVER chain multiple long equations on a single line. You MUST break long calculations into separate new lines.
 
             GRAPHING INSTRUCTION:
-
-            GRAPHING INSTRUCTION:
-            GRAPHING INSTRUCTION:
-            If the problem asks to graph a function, or if a graph would help explain the concept, provide the raw equation to graph wrapped EXACTLY in a markdown code block labeled 'graph' like this:
+            If a graph is needed, provide the raw equation wrapped EXACTLY in a markdown code block labeled 'graph'.
             \`\`\`graph
-            x^2 + 2x - 5
+            x^2 + 2*x - 5
             \`\`\`
-            CRITICAL GRAPH RULE: If there are multiple functions to graph, put EACH function on a NEW LINE. Do NOT use commas to separate them. Do NOT include 'y =' or 'f(x) =' inside the block, just the right side of the equation.`;
+            CRITICAL GRAPH RULES: 
+            1. EACH function MUST be on its own NEW LINE. 
+            2. NEVER include "y =" or "f(x) =". ONLY write the right side of the equation.
+            3. Explicitly use the '*' symbol for multiplication (e.g., write 2/3*x instead of 2/3x).`;
 
             let finalPrompt = basePrompt;
             if (attempt.trim() !== "") {
@@ -170,7 +170,6 @@
             }
 
             try {
-                // Notice we are now sending both the prompt AND the image to the backend!
                 const response = await fetch('/api/solve', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -210,23 +209,26 @@
                         preNode.replaceWith(container); 
 
                         try {
-                            // 1. Split the AI's output by newlines
-                            const rawLines = block.textContent.split('\n');
+                            // 1. Aggressively clean the AI's output before splitting
+                            let cleanText = block.textContent.replace(/y\s*=/gi, '\n').replace(/f\(x\)\s*=/gi, '\n');
+                            
+                            const rawLines = cleanText.split('\n');
                             const plotData = [];
                             
                             // 2. Loop through each line and clean it up
                             rawLines.forEach(line => {
                                 let cleanLine = line.trim();
-                                // Remove a trailing comma just in case the AI disobeys
                                 if (cleanLine.endsWith(',')) cleanLine = cleanLine.slice(0, -1);
                                 
-                                // If the line isn't empty, add it to our list of graphs to draw
-                                if (cleanLine !== "") {
+                                // If the line isn't empty and isn't an "x =" line, add it
+                                if (cleanLine !== "" && !cleanLine.startsWith("x")) {
+                                    // Add explicit multiplication for fractions attached to x
+                                    cleanLine = cleanLine.replace(/(\d)\s*x/g, '$1*x');
                                     plotData.push({ fn: cleanLine });
                                 }
                             });
 
-                            // 3. Draw the graph with all the functions!
+                            // 3. Draw the graph
                             functionPlot({
                                 target: '#' + container.id,
                                 width: container.clientWidth - 40,
