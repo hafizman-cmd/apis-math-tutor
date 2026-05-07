@@ -1,47 +1,47 @@
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-    // This is the placeholder! Vercel will secretly inject your real key here.
-    const API_KEY = process.env.REPLICATE_API_KEY;
-    const { prompt } = req.body;
+    // Notice we are using a new variable name here for Google!
+    const API_KEY = process.env.GEMINI_API_KEY;
+    const { prompt, image } = req.body;
 
     try {
-        // 1. Start the prediction 
-        const startResponse = await fetch("https://api.replicate.com/v1/models/meta/meta-llama-3-70b-instruct/predictions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${API_KEY}`, // <-- Notice we use the variable here!
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                input: { prompt: prompt, max_new_tokens: 1024, temperature: 0.2 }
-            })
-        });
-
-        const startData = await startResponse.json();
-        if (startData.error) return res.status(500).json({ error: startData.error });
-
-        // 2. Poll for the result
-        let predictionUrl = startData.urls.get;
-        let isFinished = false;
-        let finalOutput = "";
-
-        while (!isFinished) {
-            await new Promise(r => setTimeout(r, 2000));
-            const pollResponse = await fetch(predictionUrl, {
-                headers: { "Authorization": `Bearer ${API_KEY}` } // <-- And here!
+        // 1. Build the request payload
+        let parts = [{ "text": prompt }];
+        
+        // If the user uploaded an image, attach it to the request so Gemini can see it
+        if (image) {
+            parts.push({
+                "inline_data": {
+                    "mime_type": "image/jpeg",
+                    "data": image
+                }
             });
-            const pollData = await pollResponse.json();
-
-            if (pollData.status === "succeeded") {
-                isFinished = true;
-                finalOutput = pollData.output.join("");
-            } else if (pollData.status === "failed") {
-                return res.status(500).json({ error: "Model failed." });
-            }
         }
 
-        // 3. Send the final answer back to your website
+        const payload = {
+            "contents": [{
+                "parts": parts
+            }]
+        };
+
+        // 2. Send the request directly to Google's Gemini 1.5 Flash model
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        
+        if (data.error) return res.status(500).json({ error: data.error.message });
+
+        // 3. Extract the text answer from Google's response format
+        const finalOutput = data.candidates[0].content.parts[0].text;
+
+        // 4. Send the final answer back to your website
         res.status(200).json({ result: finalOutput });
 
     } catch (error) {
