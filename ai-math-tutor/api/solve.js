@@ -5,28 +5,30 @@ export default async function handler(req, res) {
     const { prompt, image } = req.body;
 
     try {
-        // 1. Build the input payload specifically for Molmo
+        // 1. Build the input payload specifically for Qwen2-VL
         const inputData = { 
-            text: prompt, // Molmo uses 'text' instead of 'prompt'
-            max_new_tokens: 1000 // Force it to write long, detailed math explanations
+            prompt: prompt,
+            max_new_tokens: 512 // Qwen's max allowed token limit to prevent cut-offs
         };
         
+        // Qwen2-VL requires the image to be explicitly labeled "media"
         if (image) {
-            inputData.image = `data:image/jpeg;base64,${image}`;
+            inputData.media = `data:image/jpeg;base64,${image}`;
         }
 
-        // 2. Point it to the official Molmo 7B model
-        const replicateModel = "zsxkib/molmo-7b"; 
-
-        // 3. Send the request to Replicate
-        const response = await fetch(`https://api.replicate.com/v1/models/${replicateModel}/predictions`, {
+        // 2. Send the request to Replicate using the official Version Hash endpoint
+        const response = await fetch(`https://api.replicate.com/v1/predictions`, {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${API_KEY}`,
                 "Content-Type": "application/json",
                 "Prefer": "wait" 
             },
-            body: JSON.stringify({ input: inputData })
+            body: JSON.stringify({ 
+                // This is the exact 64-character hash for lucataco/qwen2-vl-7b-instruct
+                version: "bf57361c75677fc33d480d0c5f02926e621b2caa2000347cb74aeae9d2ca07ee",
+                input: inputData 
+            })
         });
 
         const data = await response.json();
