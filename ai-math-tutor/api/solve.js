@@ -14,22 +14,24 @@ export default async function handler(req, res) {
             max_new_tokens: 1000 
         };
         
+        // Molmo expects the image to just be called "image"
         if (image) {
             inputData.image = `data:image/jpeg;base64,${image}`;
         }
 
-        // 2. Point it to the Molmo model on Replicate
-        const replicateModel = "zsxkib/molmo-7b"; 
-
-        // 3. Send the request
-        const response = await fetch(`https://api.replicate.com/v1/models/${replicateModel}/predictions`, {
+        // 2. Send the request to Replicate using the official Version Hash endpoint
+        const response = await fetch(`https://api.replicate.com/v1/predictions`, {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${API_KEY}`,
                 "Content-Type": "application/json",
                 "Prefer": "wait" 
             },
-            body: JSON.stringify({ input: inputData })
+            body: JSON.stringify({ 
+                // This is the exact 64-character fingerprint for zsxkib/molmo-7b
+                version: "76ebd700864218a4ca97ac1ccff068be7222272859f9ea2ae1dd4ac073fa8de8",
+                input: inputData 
+            })
         });
 
         const data = await response.json();
@@ -45,7 +47,7 @@ export default async function handler(req, res) {
             throw new Error(`The AI is currently "${data.status}". It took too long to wake up. Please try again!`);
         }
 
-        // 4. Extract the answer
+        // 3. Extract the answer
         let finalOutput = Array.isArray(data.output) ? data.output.join('') : data.output;
 
         res.status(200).json({ result: finalOutput });
