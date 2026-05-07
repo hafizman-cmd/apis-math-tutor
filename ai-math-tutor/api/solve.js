@@ -18,15 +18,19 @@ export default async function handler(req, res) {
         // MAKE SURE THIS IS THE EXACT ID FROM REPLICATE
         const replicateModel = "lucataco/qwen3-vl-8b-instruct"; 
 
-        // 3. Send the request to Replicate
-        const response = await fetch(`https://api.replicate.com/v1/models/${replicateModel}/predictions`, {
+       // Send the request to Replicate using the version hash
+        const response = await fetch(`https://api.replicate.com/v1/predictions`, {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${API_KEY}`,
                 "Content-Type": "application/json",
                 "Prefer": "wait" 
             },
-            body: JSON.stringify({ input: inputData })
+            // We pass the "version" directly in the body here
+            body: JSON.stringify({ 
+                version: "12345...", // <-- You will need the actual version hash here
+                input: inputData 
+            })
         });
 
         const data = await response.json();
