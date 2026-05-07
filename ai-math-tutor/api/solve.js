@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
         // 2. Set the specific model. 
         // MAKE SURE THIS IS THE EXACT ID FROM REPLICATE
-        const replicateModel = "lucataco/qwen3-vl-8b-instruct"; 
+        const replicateModel = "lucataco/qwen2-vl-7b-instruct"; 
 
        // Send the request to Replicate using the version hash
         const response = await fetch(`https://api.replicate.com/v1/predictions`, {
