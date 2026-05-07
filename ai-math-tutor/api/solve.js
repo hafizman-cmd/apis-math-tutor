@@ -26,7 +26,7 @@ export default async function handler(req, res) {
         };
 
         // 2. Send the request directly to Google's Gemini 1.5 Flash model
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
