@@ -1,7 +1,6 @@
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-    // We are back to using the Replicate key!
     const API_KEY = process.env.REPLICATE_API_KEY;
     const { prompt, image } = req.body;
 
@@ -11,12 +10,12 @@ export default async function handler(req, res) {
             prompt: prompt 
         };
         
-        // Replicate requires the image string to explicitly state it is a base64 jpeg
         if (image) {
             inputData.image = `data:image/jpeg;base64,${image}`;
         }
 
         // 2. Set the specific model. 
+        // MAKE SURE THIS IS THE EXACT ID FROM REPLICATE
         const replicateModel = "lucataco/qwen3-vl-8b-instruct"; 
 
         // 3. Send the request to Replicate
@@ -25,8 +24,6 @@ export default async function handler(req, res) {
             headers: {
                 "Authorization": `Bearer ${API_KEY}`,
                 "Content-Type": "application/json",
-                // This magic header tells Replicate to hold the connection open and 
-                // return the final answer immediately, saving us from writing polling loops!
                 "Prefer": "wait" 
             },
             body: JSON.stringify({ input: inputData })
@@ -34,15 +31,28 @@ export default async function handler(req, res) {
 
         const data = await response.json();
         
-        if (data.error) return res.status(500).json({ error: data.error });
+        // --- NEW ERROR CATCHING LOGIC ---
+        // Replicate hides errors in "detail" instead of "error" sometimes
+        if (!response.ok) {
+            throw new Error(data.detail || data.title || "Replicate API rejected the request.");
+        }
+        if (data.error) {
+            throw new Error(typeof data.error === 'string' ? data.error : data.error.message || "Unknown Replicate Error");
+        }
 
-        // 4. Replicate often returns text outputs as an array of string chunks. 
-        // We join them together into one solid paragraph.
+        // If the model is taking too long to wake up, it won't have an output yet
+        if (!data.output) {
+            throw new Error(`The AI is currently "${data.status}". It took too long to wake up. Please try clicking solve again!`);
+        }
+        // --------------------------------
+
+        // 4. Extract the answer
         let finalOutput = Array.isArray(data.output) ? data.output.join('') : data.output;
 
         res.status(200).json({ result: finalOutput });
 
     } catch (error) {
+        // Send the exact error message back to the website so you can read it
         res.status(500).json({ error: error.message });
     }
 }
