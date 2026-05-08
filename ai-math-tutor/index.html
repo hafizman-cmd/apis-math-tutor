@@ -353,7 +353,8 @@
                 finalPrompt = `User's Attempt: ${attempt}\n\nFirst, provide a **🔍 Error Diagnosis**. Explain where they went wrong. Next, provide a **🧠 Mini-Lesson**. Then show the correct solution using the structure below.\n\n` + basePrompt;
             }
 
-            // ADD THIS LINE! This actually hands the AI the math problem you typed!
+            // --- THE MISSING LINK ---
+            // This grabs what you typed in the box and hands it to the AI!
             finalPrompt += `\n\n**PROBLEM TO SOLVE:**\n${input}`;
 
             let difficultyInstruction = "";
