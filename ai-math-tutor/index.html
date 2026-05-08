@@ -161,9 +161,11 @@
             \`\`\`
             CRITICAL GRAPH RULES: 
             1. EACH function MUST be on its own NEW LINE. 
-            2. NEVER include "y =" or "f(x) =". ONLY write the right side of the equation.
-            3. Explicitly use the '*' symbol for multiplication (e.g., write 2/3*x instead of 2/3x).`;
+            2. NEVER include "y =" or "f(x) =" or "x =". ONLY write the right side of the equation.
+            3. NO COMMENTS. DO NOT use the '#' symbol and DO NOT write any English words inside the graph block.
+            4. Explicitly use the '*' symbol for multiplication (e.g., write 2/3*x instead of 2/3x).`;
 
+            
             let finalPrompt = basePrompt;
             if (attempt.trim() !== "") {
                 finalPrompt = `User's Attempt: ${attempt}\n\nFirst, provide a **🔍 Error Diagnosis**. Explain where they went wrong. Next, provide a **🧠 Mini-Lesson**. Then show the correct solution using the structure below.\n\n` + basePrompt;
@@ -217,11 +219,13 @@
                             
                             // 2. Loop through each line and clean it up
                             rawLines.forEach(line => {
-                                let cleanLine = line.trim();
+                                // Strip out any comments starting with '#' or the word 'for'
+                                let cleanLine = line.split('#')[0].split('for')[0].trim();
+                                
                                 if (cleanLine.endsWith(',')) cleanLine = cleanLine.slice(0, -1);
                                 
-                                // If the line isn't empty and isn't an "x =" line, add it
-                                if (cleanLine !== "" && !cleanLine.startsWith("x")) {
+                                // Ignore empty lines, vertical lines (x=), or horizontal axes (y=0)
+                                if (cleanLine !== "" && !cleanLine.includes("x=") && !cleanLine.includes("x =") && !cleanLine.includes("y=") && !cleanLine.includes("y =")) {
                                     // Add explicit multiplication for fractions attached to x
                                     cleanLine = cleanLine.replace(/(\d)\s*x/g, '$1*x');
                                     plotData.push({ fn: cleanLine });
