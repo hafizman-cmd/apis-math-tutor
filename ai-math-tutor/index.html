@@ -353,6 +353,9 @@
                 finalPrompt = `User's Attempt: ${attempt}\n\nFirst, provide a **🔍 Error Diagnosis**. Explain where they went wrong. Next, provide a **🧠 Mini-Lesson**. Then show the correct solution using the structure below.\n\n` + basePrompt;
             }
 
+            // ADD THIS LINE! This actually hands the AI the math problem you typed!
+            finalPrompt += `\n\n**PROBLEM TO SOLVE:**\n${input}`;
+
             let difficultyInstruction = "";
             if (difficulty === "Basic") difficultyInstruction = "Explain as if the student is a beginner. Break down every single basic arithmetic step. Use simple analogies and easy vocabulary.";
             if (difficulty === "Intermediate") difficultyInstruction = "Provide a standard, clear explanation suitable for a high school student.";
