@@ -244,13 +244,18 @@
             document.getElementById('practiceLoading').classList.remove('hidden');
             document.getElementById('practiceCards').classList.add('hidden');
 
+            // Grab the selected language
+            const language = document.getElementById('languageSelect').value;
+
+            // Tell the AI to use the correct language
             const prompt = `Based on this math solution:
             ${currentSolutionText}
             
             Generate EXACTLY 2 similar practice problems for the student to try. 
             Format the output strictly as a list separated by a pipeline character (|).
             Example: Solve for x: 3x + 2 = 11 | Solve for x: 5x - 4 = 16
-            Do NOT write any other text. ONLY the two problems separated by |`;
+            Do NOT write any other text. ONLY the two problems separated by |
+            CRITICAL INSTRUCTION: You MUST write the practice problems entirely in ${language}.`;
 
             try {
                 // REAL PRODUCTION API CALL
@@ -280,6 +285,14 @@
                 document.getElementById('practiceCards').innerHTML = cardsHtml;
                 document.getElementById('practiceLoading').classList.add('hidden');
                 document.getElementById('practiceCards').classList.remove('hidden');
+
+                // NEW: Render KaTeX inside the practice cards so the $ signs turn into beautiful math!
+                renderMathInElement(document.getElementById('practiceCards'), {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ]
+                });
                 
             } catch (error) {
                 console.error("Practice Generation Error:", error);
@@ -313,13 +326,13 @@
 
             [The Mathematical Equation using block LaTeX wrapped in double $$]
 
-            **💡 Why This Step?** [Explain the concept]
+            **💡 [Translate 'Why This Step?' to the requested language]** [Explain the concept]
 
-            **⚠️ Common Mistake:** [Highlight a general mistake]
+            **⚠️ [Translate 'Common Mistake:' to the requested language]** [Highlight a general mistake]
 
             ---
 
-            Finally, provide the **Final Answer**.
+            Finally, provide the **[Translate 'Final Answer:' to the requested language]**.
             Use LaTeX formatting ONLY for mathematical formulas. 
             CRITICAL RULE 1: NEVER wrap regular English text inside LaTeX delimiters. 
             CRITICAL RULE 2: NEVER chain multiple long equations on a single line. You MUST break long calculations into separate new lines.
