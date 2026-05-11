@@ -8,10 +8,10 @@ export default async function handler(req, res) {
         let extractedMathText = "";
 
         // ==========================================
-        // MODEL 1: THE EYES (Llama 3.2 Vision)
+        // MODEL 1: THE EYES (Qwen2-VL via Version Hash)
         // ==========================================
         if (image) {
-            const visionResponse = await fetch(`https://api.replicate.com/v1/models/meta/llama-3.2-11b-vision-instruct/predictions`, {
+            const visionResponse = await fetch(`https://api.replicate.com/v1/predictions`, {
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${API_KEY}`,
@@ -19,10 +19,12 @@ export default async function handler(req, res) {
                     "Prefer": "wait" 
                 },
                 body: JSON.stringify({
+                    // Qwen2-VL 7B Instruct's exact version hash
+                    version: "bf57361c75677fc33d480d0c5f02926e621b2caa2000347cb74aeae9d2ca07ee",
                     input: { 
-                        image: `data:image/jpeg;base64,${image}`,
-                        // Strict command so it ONLY reads, it doesn't try to solve
-                        prompt: "Extract the mathematical equation or text from this image perfectly. Output ONLY the raw equation text. Do not solve it. Do not add any conversational text."
+                        media: `data:image/jpeg;base64,${image}`, // Qwen demands 'media' instead of 'image'
+                        prompt: "Extract the mathematical equation or text from this image perfectly. Output ONLY the raw equation text. Do not solve it. Do not add any conversational text.",
+                        max_new_tokens: 512
                     }
                 })
             });
@@ -45,7 +47,7 @@ export default async function handler(req, res) {
         if (extractedMathText) {
             combinedPrompt = combinedPrompt.replace(
                 "**PROBLEM TO SOLVE:**", 
-                `**PROBLEM TO SOLVE:**\n[Extracted from Image]: ${extractedMathText}`
+                `**PROBLEM TO SOLVE:**\n[Extracted from Image by Qwen]: ${extractedMathText}`
             );
         }
 
@@ -62,8 +64,8 @@ export default async function handler(req, res) {
             body: JSON.stringify({ 
                 input: { 
                     prompt: combinedPrompt,
-                    // Give the solver a massive token limit so it doesn't get cut off
-                    max_new_tokens: 4096 
+                    // Llama 4 Maverick uses 'max_tokens' (instead of max_new_tokens)
+                    max_tokens: 4096 
                 } 
             })
         });
