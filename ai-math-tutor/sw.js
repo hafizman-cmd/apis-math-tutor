@@ -1,4 +1,4 @@
-const CACHE_NAME = 'math-tutor-v6.1';
+const CACHE_NAME = 'math-tutor-v6.2';
 const ASSETS = [
   '/',
   '/index.html',
